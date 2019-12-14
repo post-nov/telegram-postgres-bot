@@ -24,9 +24,6 @@ from control import Controller
 from config import TelegramConfig
 from utils.text import divide_long_message
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-
 
 class MQBot(telegram.bot.Bot):
     '''A subclass of Bot which delegates send method handling to MQ'''
@@ -73,13 +70,19 @@ class TelegramBot:
 
         self.admin_pass = configs.admin_pass
         self.admins = set()
+        self.users = set()
 
     def start(self, update, context):
+        logging.warning(f'{update.effective_user.username} typed /start')
+        if update.effective_user.username not in self.users:
+            logging.warning(f'NEW USER JOINED US:\n{update.effective_user.__dict__}')
+            self.users.add(update.effective_user.username)
         message = self.control.get_hello()
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text=message)
 
     def help(self, update, context):
+        logging.warning(f'{update.effective_user.username} typed /help')
         message = self.control.get_help()
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text=message)
@@ -108,6 +111,7 @@ class TelegramBot:
                                      parse_mode=telegram.ParseMode.MARKDOWN)
         elif context.args:
             if self.admin_pass == context.args[0]:
+                logging.warning(f'{update.effective_user.username} received admin rights')
                 new_admin = update.effective_user.id
                 self.admins.add(new_admin)
                 message = 'Поздравляю! Теперь вы можете изменять БД'
@@ -116,11 +120,15 @@ class TelegramBot:
                                          parse_mode=telegram.ParseMode.MARKDOWN)
 
             else:
+                logging.warning(
+                    f'{update.effective_user.username} failed at receiving admin rights using {context.args}')
                 message = 'Вы не знаете имени разработчика'
                 context.bot.send_message(chat_id=update.effective_chat.id,
                                          text=message,
                                          parse_mode=telegram.ParseMode.MARKDOWN)
         else:
+            logging.warning(
+                f'{update.effective_user.username} typed /admin command without args')
             message = 'Правильно:\n/admin <Имя разработчика с большой буквы>'
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=message,
@@ -128,6 +136,7 @@ class TelegramBot:
 
     def query(self, update, context):
         query = update.message.text
+        logging.warning(f'{update.effective_user.username} queued:\n"{query}"')
         if update.effective_user.id in self.admins:
             result = self.control.execute_command(query, rightful=True)
         else:
@@ -158,23 +167,27 @@ class TelegramBot:
 
     def _continue_query(self, update, context):
         if 'result' in context.chat_data:
+            logging.warning(f'{update.effective_user.id} locked bot')
             for part in context.chat_data['result']:
                 context.bot.send_message(chat_id=update.effective_chat.id,
                                          text=part)
                 time.sleep(1)  # Очень плохой фикс. ОЧЕНЬ плохой.
                 # Исправится, как только я разберусь, почему
                 # у не работает установки из MessageQueue
+            logging.warning(f'{update.effective_user.id} UNlocked bot')
         else:
             message = 'У вас нет больших запросов на выдачу'
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=message)
 
     def requested_report(self, update, context):
+        logging.warning(f'{update.effective_user.username} - requested report')
         report = self.control.get_stats()
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text=report)
 
     def _scheduled_report(self, context):
+        logging.warning(f'{context.job.context} - scheduled report')
         report = self.control.get_stats(scheduled=True)
         context.bot.send_message(chat_id=context.job.context,
                                  text=report)
@@ -182,7 +195,6 @@ class TelegramBot:
     def scheduled_report(self, update, context):
         try:
             freq = int(context.args[0])
-
             if freq <= 0:
                 message = 'Правильно:\n/schedule <*положительное* число>'
                 context.bot.send_message(chat_id=update.effective_chat.id,
@@ -197,6 +209,8 @@ class TelegramBot:
                                                                freq*60,
                                                                context=update.effective_chat.id)
                 context.chat_data['job'] = new_schedule
+                logging.warning(
+                    f'{update.effective_user.username} scheduled report every {freq} minutes')
 
                 message = '\n'.join(['Отчеты по расписанию включены.',
                                      'Первый отчет будет через {} минут, '
@@ -210,6 +224,8 @@ class TelegramBot:
                                          text=message.format(freq))
 
         except (IndexError, ValueError):
+            logging.warning(
+                f'{update.effective_user.username} failed at scheduling report using "{context.args}"')
             message = '/schedule <*число*>'
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=message,
@@ -220,6 +236,7 @@ class TelegramBot:
         if 'job' in context.chat_data:
             schedule = context.chat_data['job']
             schedule.schedule_removal()
+            logging.warning(f'{update.effective_user.username} disabled scheduled report')
             message = '\n'.join(['Отчеты по расписанию отключены.',
                                  'Чтобы включить введите:',
                                  '/schedule <периодичность в минутах>'])

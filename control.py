@@ -1,3 +1,4 @@
+import logging
 from utils.text import (
     generate_table,
     generate_report,
@@ -77,9 +78,11 @@ class Controller:
             if rightful:
                 try:
                     return self.db.execute(query, alter=True)
-                except TypeError as e:
+                except Exception as e:
+                    logging.error(f'Query:\n{query}\nfailed with error:\n{e}')
                     return f'Запрос сформулирован неправильно:\n{str(e)}'
             elif not rightful:
+                logging.warning(f'Unauthorized attempt to change DB with:\n{query}\n')
                 return '\n'.join(['У вас недостаточно прав.',
                                   'Введите /admin <Имя разработчика с большой буквы>,',
                                   'чтобы получить возможность изменять БД.'])
@@ -88,5 +91,6 @@ class Controller:
                 query_result = self.db.execute(query)
                 result = generate_table(query_result)
                 return result
-            except TypeError as e:
+            except Exception as e:
+                logging.error(f'Query:\n{query}\nfailed with error:\n{e}')
                 return f'Запрос сформулирован неправильно:\n{str(e)}'

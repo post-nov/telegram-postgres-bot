@@ -27,7 +27,7 @@ HELLO_TEXT = '\n'.join([
 def generate_table(data):
     head = ' | '.join(['#'] + data['colnames'])
     rows = []
-    for num, row in enumerate(data['rows']):
+    for num, row in enumerate(data['rows'], start=1):
         rows.append(' | '.join([str(num)] + [str(i) for i in row]))
     return '\n'.join([head]+rows)
 
