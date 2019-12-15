@@ -88,18 +88,23 @@ class TelegramBot:
                                  text=message)
 
     def error(self, update, context):
+        message = 'Что-то пошло не так. Администратор был уведомлен об ошибке'
         try:
             raise context.error
-        except BadRequest:
-            message = 'Неверная команда. Чтобы увидеть список команд, наберите /help'
+        except BadRequest as e:
+            logging.error(f'{update.effective_user.username} caused error:{e}')
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=message)
-        except TimedOut:
-            pass
-        except NetworkError:
-            pass
-        except TelegramError:
-            message = 'Неверная команда. Чтобы увидеть список команд, наберите /help'
+        except TimedOut as e:
+            logging.error(f'{update.effective_user.username} caused error:{e}')
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=message)
+        except NetworkError as e:
+            logging.error(f'{update.effective_user.username} caused error:{e}')
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=message)
+        except TelegramError as e:
+            logging.error(f'{update.effective_user.username} caused error:{e}')
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=message)
 
@@ -186,12 +191,6 @@ class TelegramBot:
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text=report)
 
-    def _scheduled_report(self, context):
-        logging.warning(f'{context.job.context} - scheduled report')
-        report = self.control.get_stats(scheduled=True)
-        context.bot.send_message(chat_id=context.job.context,
-                                 text=report)
-
     def scheduled_report(self, update, context):
         try:
             freq = int(context.args[0])
@@ -230,6 +229,12 @@ class TelegramBot:
             context.bot.send_message(chat_id=update.effective_chat.id,
                                      text=message,
                                      parse_mode=telegram.ParseMode.MARKDOWN)
+
+    def _scheduled_report(self, context):
+        logging.warning(f'{context.job.context} - scheduled report')
+        report = self.control.get_stats(scheduled=True)
+        context.bot.send_message(chat_id=context.job.context,
+                                 text=report)
 
     def stop_report(self, update, context):
         chat_id = update.effective_chat.id
