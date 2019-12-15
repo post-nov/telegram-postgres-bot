@@ -13,18 +13,30 @@ class SQLQuery:
         self.cur = self.conn.cursor()  # cursor
 
     def _change_db(self, query):
+        "Выполняет изменяющий запрос"
+
         self.cur.execute(query)
         self.conn.commit()
 
-    def _fetch_db(self, query, args=None):
+    def _fetch_db(self, query):
+        """
+        Выполняет неизменяющий запрос на БД. Выдает словарь, содержащий
+        название колонок и данные.
+        """
+
         self.cur.execute(query)
         rows = self.cur.fetchall()
         colnames = [d[0] for d in self.cur.description]
+        self.conn.commit()
         return {'colnames': colnames,
                 'rows': rows}
-        self.conn.commit()
 
     def execute(self, query, alter=False):
+        """
+        Выполняет запрос. В случае ошибки возвращает прежнее состояние БД
+        и выдает исключение, содержащее указание на ошибку.
+        """
+
         try:
             if alter:
                 self._change_db(query)
@@ -34,7 +46,3 @@ class SQLQuery:
         except Exception as e:
             self.conn.rollback()
             raise e
-
-
-if __name__ == '__main__':
-    db = SQLQuery(DBConfig)
