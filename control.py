@@ -13,6 +13,8 @@ class Controller:
         self.db = db
 
     def _is_alterable(self, query):
+        "Опряделяет наличие в запросе слов, которые могут изменить базу данных"
+
         stop_words = {
             'CREATE',
             'INSERT',
@@ -29,40 +31,30 @@ class Controller:
         else:
             return False
 
-    def _get_list_of_tables(self):
-        query = """
-        SELECT
-            table_name
-        FROM
-            information_schema.tables
-        WHERE
-            table_schema = 'public'
-        """
-        tables = self.db.execute(query)
-        return tables['rows']
-
     def _get_stats(self):
-        tables = [r[0] for r in self._get_list_of_tables()]
-        query = """
-        SELECT
-            COUNT(*)
-        FROM
-            {}
         """
+        Формирует отчет о размерах таблиц. Делает это в 2 этапа:
+        1. Собирает название всех таблицы
+        2. Считает количество записей в каждой таблице
+        """
+
+        query_tables = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        tables = self.db.execute(query_tables)
+        tables = [r[0] for r in tables['rows']]
+        query_count = "SELECT COUNT(*) FROM {}"
         tables_count = []
         for table in tables:
-            # Немного уродливо получилось с этим [1][0][0],
-            # но это уникальная функция с уникальной формой
-            # выдачи данных, поэтому ради нее одной ставить костыли
-            # в других местах нет смысла.
-            # По сути,  это она расшифровывается, как:
-            # [данные в целом][данные, как лист][конкретный счетчик]
-            rows = self.db.execute(query.format(table))['rows'][0][0]
+            # Не очень красивый участок, которого бы не было, если бы я знал
+            # как выгребать эти данные одним запросом.
+            # Расшифровывается, как: [данные в целом][данные, как лист][конкретный счетчик]
+            rows = self.db.execute(query_count.format(table))['rows'][0][0]
             tables_count.append((table, rows))
         return {'colnames': ['Таблица', 'Записей'],
                 'rows': tables_count}
 
     def get_stats(self, scheduled=False):
+        "Возвращает отчет о размерах таблиц"
+
         stats = self._get_stats()
         report = generate_report(stats, scheduled)
         return report
@@ -73,7 +65,12 @@ class Controller:
     def get_hello(self):
         return HELLO_TEXT
 
-    def execute_command(self, query, rightful=None):
+    def execute_command(self, query, rightful=False):
+        """
+        Выполняет запрос. Аргумент rightful показывает с какими правами
+        он был сделан и можно ли им изменить базу данных.
+        """
+
         if self._is_alterable(query):
             if rightful:
                 try:
